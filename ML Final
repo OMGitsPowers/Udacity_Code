@@ -10,8 +10,9 @@ sys.path.append(os.path.abspath(("../tools/")))
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score
 from time import time
+from sklearn.model_selection import GridSearchCV
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
 ### The first feature must be "poi".
@@ -22,8 +23,8 @@ with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
 
 #Verify Data is loading correctly.
-print(len(data_dict.keys()))
-print(data_dict['LAY KENNETH L'])
+#print(len(data_dict.keys()))
+#print(data_dict['LAY KENNETH L'])
 
 
 
@@ -96,50 +97,66 @@ labels, features = targetFeatureSplit(data)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
-### Task 5: Tune your classifier to achieve better than .3 precision and recall
-### using our testing script. Check the tester.py script in the final project
-### folder for details on the evaluation method, especially the test_classifier
-### function. Because of the small size of the dataset, the script uses
-### stratified shuffle split cross validation. For more info:
-### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
 features_train, features_test, labels_train, labels_test = \
     train_test_split(features, labels, test_size=0.1, random_state=42)
 
 t1 = time()
 # Provided to give you a starting point. Try a variety of classifiers.
-from sklearn.naive_bayes import GaussianNB
-clf = GaussianNB()
-clf.fit(features_train, labels_train)
-pred = clf.predict(features_test)
-arc_NB = accuracy_score(pred, labels_test)
-print("Naive Bayes", arc_NB)
-print("Naive Bayes process time:", round(time()-t1, 3), "s")
+#from sklearn.naive_bayes import GaussianNB
+#clf = GaussianNB()
+#clf.fit(features_train, labels_train)
+#pred = clf.predict(features_test)
+#arc_NB = accuracy_score(pred, labels_test)
+#print("Naive Bayes", arc_NB)
+#print("Naive Bayes process time:", round(time()-t1, 3), "s")
 
 
 from sklearn import svm
-clf2 = svm.SVC(kernel='rbf')
-clf2.fit(features_train, labels_train)
-pred = clf2.predict(features_test)
+clf = svm.SVC()
+clf.fit(features_train, labels_train)
+pred = clf.predict(features_test)
 arc_svm = accuracy_score(pred, labels_test)
 print("SVM:", arc_svm)
 print("SVM process time:", round(time()-t1, 3), "s")
 
-from sklearn.neighbors import KNeighborsClassifier
-clf3 = KNeighborsClassifier(n_neighbors=10)
-clf3.fit(features_train, labels_train)
-pred = clf3.predict(features_test)
-arc_kn = accuracy_score(pred, labels_test)
-print("KN:", arc_kn)
-print("KNeighbors process time:", round(time()-t1, 3), "s")
+#from sklearn.neighbors import KNeighborsClassifier
+#clf3 = KNeighborsClassifier(n_neighbors=10)
+#clf3.fit(features_train, labels_train)
+#pred = clf3.predict(features_test)
+#arc_kn = accuracy_score(pred, labels_test)
+#print("KN:", arc_kn)
+#print("KNeighbors process time:", round(time()-t1, 3), "s")
 
-from sklearn.tree import DecisionTreeClassifier
-clf4 = DecisionTreeClassifier(min_samples_split=5)
-clf4.fit(features_train, labels_train)
-pred = clf3.predict(features_test)
-dct = accuracy_score(pred, labels_test)
-print("DC:", arc_kn)
-print("Decsion Tree process time:", round(time()-t1, 3), "s")
+#from sklearn.tree import DecisionTreeClassifier
+#clf4 = DecisionTreeClassifier()
+#clf4.fit(features_train, labels_train)
+#pred = clf3.predict(features_test)
+#dct = accuracy_score(pred, labels_test)
+#print("DC:", arc_kn)
+#print("Decsion Tree process time:", round(time()-t1, 3), "s")
+
+
+### Task 5: Tune your classifier to achieve better than .3 precision and recall
+### using our testing script. Check the tester.py script in the final project
+### folder for details on the evaluation method, especially the test_classifier
+### function. Because of the small size of the dataset, the script uses
+### stratified shuffle split cross validation. For more info:
+### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
+features_train, features_test, labels_train, labels_test = \
+    train_test_split(features, labels, test_size=0.1, random_state=42)
+
+
+parms = {'kernel' : ('poly', 'rbf'), 'C':[1,10]}
+clf = GridSearchCV(clf, parms)
+clf.fit(features_train, labels_train)
+arc_svm = accuracy_score(pred, labels_test)
+print("SVM:", arc_svm)
+print("SVM process time:", round(time()-t1, 3), "s")
+
+
+
+
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
