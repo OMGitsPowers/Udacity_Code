@@ -4,44 +4,88 @@ import sys
 import pickle
 import os
 
+import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.pipeline import Pipeline
+
 sys.path.append(os.path.abspath(("../tools/")))
 
+from sklearn.tree import DecisionTreeClassifier
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 from time import time
-from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_selection import SelectKBest, chi2, f_classif
+from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.linear_model import LogisticRegression
+
+t1 = time()
+
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
 ### The first feature must be "poi".
-features_list = ['salary', 'total_stock_value'] # You will need to use more features
+features_list = ['poi', 'salary', 'total_payments', 'loan_advances', 'bonus',
+                 'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
+                 'director_fees', 'Sus_Emails', 'to_messages', 'from_poi_to_this_person', 'from_messages',
+                 'from_this_person_to_poi', 'shared_receipt_with_poi']  # You will need to use more features
+
+emailFeatures = ['to_messages', 'email_address', 'from_poi_to_this_person', 'from_messages',
+                 'from_this_person_to_poi', 'shared_receipt_with_poi']
+
+finFeatures = ['salary', 'deferral_payments', 'total_payments', 'loan_advances', 'bonus',
+               'restricted_stock_deferred', 'deferred_income', 'total_stock_value',
+               'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
+               'restricted_stock', 'director_fees']
+
+poi = ['poi']
+
+# print(len(features_list))
+total = emailFeatures + finFeatures + poi
 
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "rb") as data_file:
     data_dict = pickle.load(data_file)
 
-#Verify Data is loading correctly.
-#print(len(data_dict.keys()))
-#print(data_dict['LAY KENNETH L'])
+# Verify Data is loading correctly.
+# print(data_dict['LAY KENNETH L'])
 
+# Getting POI/NON-POI data
+poi = 0
+nonPoi = 0
 
+for value in data_dict:
+    if data_dict[value]['poi']:
+        poi += 1
+    else:
+        nonPoi += 1
+
+missingValue = 0
+for name in data_dict:
+    for data in data_dict[name]:
+        if data_dict[name][data] == 'NaN':
+            missingValue += 1
+
+print("The total number of rows: ", len(data_dict))
+print("Number of Person of Interest: ", poi)
+print("Number of Non Person of Interest: ", nonPoi)
+print("The total number of features are:", len(total))
+print("The total number of missing values: ", missingValue)
+
+# print("The total number of features used are: ", totalFeatures)
 
 ### Task 2: Remove outliers:
-#Remove the "Total" line
-data_dict.pop( 'TOTAL', 0 )
-#Remove more outliers if their salary or total stock value is NaN
-out = []
-for i in data_dict:
-    sal = data_dict[i]['salary']
-    stk = data_dict[i]['total_stock_value']
-    if sal == 'NaN' or stk == 'NaN':
-        out.append(i)
-        continue
-#print(out)
-#Verifying my data on a sctterplot.
-data = ['poi','salary', 'total_stock_value']
+# Remove the "Total" line along with The travel agency and Mr. Lockhart
+data_dict.pop('TOTAL', 0)
+data_dict.pop('THE TRAVEL AGENCY IN THE PARK', 0)
+data_dict.pop('LOCKHART EUGENE E', 0)
+
+# Remove more outliers if their salary or total stock value is NaN
+# Verifying  data on a sctterplot.
+data = ['salary', 'total_stock_value']
 data1 = featureFormat(data_dict, data)
 for i in data1:
     expenses = i[0]
@@ -51,45 +95,60 @@ for i in data1:
 plt.xlabel('salary')
 plt.ylabel('total_stock_value')
 
-
-
-
-#plt.show() commented out so code runs faster.
-
-#Verifying scaling of features
-from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler(feature_range= (0,1))
-scl = scaler.fit_transform(data1)
-#print(scaler.data_max_) # show max values in each feature
-scaled = scaler.transform(data1)
-#print(scl)
+# Commented out so code runs faster.
+# plt.show()
 
 
 ### Task 3: Create new feature(s)
 ### Store to my_dataset for easy export below.
-
 my_dataset = data_dict
-for value in data_dict:
-    if my_dataset[value]['salary'] == 'NaN' or my_dataset[value]['total_stock_value'] == 'NaN':
-        continue
-    my_dataset[value]['Person_Worth'] = data_dict[value]['salary'] + data_dict[value]['total_stock_value']
-    #print(data_dict[value]['Person_Worth'])
 
-#Changing the value of Salary and Total Stock Value to 0 if they have NaN
+# Changing the value of Salary and Total Stock Value to 0 if they have NaN
 for a in my_dataset:
     if my_dataset[a]['salary'] == 'NaN':
-        my_dataset[a]['salary'] = 0
+        my_dataset[a]['salary'] = 0.0
 
 for a in my_dataset:
     if my_dataset[a]['total_stock_value'] == 'NaN':
-        my_dataset[a]['total_stock_value'] = 0
+        my_dataset[a]['total_stock_value'] = 0.0
 
-print(my_dataset)
+for a in my_dataset:
+    if my_dataset[a]['from_poi_to_this_person'] == 'NaN':
+        my_dataset[a]['from_poi_to_this_person'] = 0.0
+for a in my_dataset:
+    if my_dataset[a]['from_this_person_to_poi'] == 'NaN':
+        my_dataset[a]['from_this_person_to_poi'] = 0.0
 
+for a in my_dataset:
+    if my_dataset[a]['from_messages'] == 'NaN':
+        my_dataset[a]['from_messages'] = 0.0
 
+# Adding 2 new features
+for value in my_dataset:
+    if my_dataset[value]['salary'] == 'NaN' or my_dataset[value]['total_stock_value'] == 'NaN':
+        continue
+    my_dataset[value]['Person_Worth'] = data_dict[value]['salary'] + data_dict[value]['total_stock_value']
+    # print(data_dict[value]['Person_Worth'])
+
+for value in my_dataset:
+    if my_dataset[value]['from_messages'] == 0:
+        my_dataset[value]['Sus_Emails'] = 0.0
+        continue
+    my_dataset[value]['Sus_Emails'] = round(float(my_dataset[value]['from_this_person_to_poi']) \
+                                            / float(my_dataset[value]['from_messages']), 2)
+
+# Verifying My above changes worked.
+# for a in my_dataset.values():
+#    print(a)
+
+features_list = ['poi', 'salary', 'total_payments', 'bonus', 'exercised_stock_options', 'director_fees']
 ### Extract features and labels from dataset for local testing
-data = featureFormat(my_dataset, features_list, sort_keys = True)
+data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
+
+# new_feat = SelectKBest(chi2, k='all').fit_transform(features, labels)
+# print(new_feat)
+
 
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
@@ -101,41 +160,44 @@ labels, features = targetFeatureSplit(data)
 features_train, features_test, labels_train, labels_test = \
     train_test_split(features, labels, test_size=0.1, random_state=42)
 
-t1 = time()
+kf = KFold()
+for train_indices, test_indices in kf.split(features):
+    # make training and testing sets
+    features_train = [features[a] for a in train_indices]
+    features_test = [features[b] for b in test_indices]
+    labels_train = [labels[c] for c in train_indices]
+    labels_test = [labels[d] for d in test_indices]
+
 # Provided to give you a starting point. Try a variety of classifiers.
-#from sklearn.naive_bayes import GaussianNB
-#clf = GaussianNB()
-#clf.fit(features_train, labels_train)
-#pred = clf.predict(features_test)
-#arc_NB = accuracy_score(pred, labels_test)
-#print("Naive Bayes", arc_NB)
-#print("Naive Bayes process time:", round(time()-t1, 3), "s")
+# from sklearn.naive_bayes import GaussianNB
+# clf = GaussianNB()
+# clf.fit(features_train, labels_train)
+# pred = clf.predict(features_test)
+# score = clf.score(features_test, labels_test)
+# print('Time: ', round(time() - t1, 3), "s")
+# print(pred)
+# print(score)
+# print('Pres :', precision_score(pred, labels_test, average='weighted'))
+# print('Recall :', recall_score(pred, labels_test, average='weighted'))
 
+# from sklearn.tree import DecisionTreeClassifier
+# clf = DecisionTreeClassifier()
+# clf.fit(features_train, labels_train)
+# pred = clf.predict(features_test)
+# print('Time: ', round(time() - t1, 3), "s")
+# print(pred)
+# score = clf.score(features_test, labels_test)
+# print('Score:' ,score)
+# print('Prec :', precision_score(pred, labels_test, average='weighted', zero_division=0))
+# print('Recall :', recall_score(pred, labels_test, average='weighted', zero_division=0))
 
-from sklearn import svm
-clf = svm.SVC()
-clf.fit(features_train, labels_train)
-pred = clf.predict(features_test)
-arc_svm = accuracy_score(pred, labels_test)
-print("SVM:", arc_svm)
-print("SVM process time:", round(time()-t1, 3), "s")
+# val = clf.feature_importances_
+# ind = np.argsort(val)[::-1]
+# print(ind)
+# for i in range(len(new_feat)):
+#    print("{} feature {} ({})".format(i+1,features_list[i+1],val[ind[i]]))
 
-#from sklearn.neighbors import KNeighborsClassifier
-#clf3 = KNeighborsClassifier(n_neighbors=10)
-#clf3.fit(features_train, labels_train)
-#pred = clf3.predict(features_test)
-#arc_kn = accuracy_score(pred, labels_test)
-#print("KN:", arc_kn)
-#print("KNeighbors process time:", round(time()-t1, 3), "s")
-
-#from sklearn.tree import DecisionTreeClassifier
-#clf4 = DecisionTreeClassifier()
-#clf4.fit(features_train, labels_train)
-#pred = clf3.predict(features_test)
-#dct = accuracy_score(pred, labels_test)
-#print("DC:", arc_kn)
-#print("Decsion Tree process time:", round(time()-t1, 3), "s")
-
+from sklearn.tree import DecisionTreeClassifier
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script. Check the tester.py script in the final project
@@ -143,19 +205,32 @@ print("SVM process time:", round(time()-t1, 3), "s")
 ### function. Because of the small size of the dataset, the script uses
 ### stratified shuffle split cross validation. For more info:
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
-features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.1, random_state=42)
+dt = DecisionTreeClassifier()
 
+parms = {'criterion': ('gini', 'entropy'),
+         'min_samples_split': [2, 3, 4, 5, 6, 7, 8, 9, 10]
+         }
 
-parms = {'kernel' : ('poly', 'rbf'), 'C':[1,10]}
-clf = GridSearchCV(clf, parms)
+kbest = SelectKBest(f_classif)
+pipeline = Pipeline([('kbest', kbest), ('dt', dt)])
+gridSearch = GridSearchCV(pipeline, {'kbest__k': [1, 2, 3, 4, 5]})
+
+new = gridSearch.fit(features, labels)
+
+dt = DecisionTreeClassifier()
+clf = gridSearch.fit(features, labels)
 clf.fit(features_train, labels_train)
-arc_svm = accuracy_score(pred, labels_test)
-print("SVM:", arc_svm)
-print("SVM process time:", round(time()-t1, 3), "s")
-
-
-
+pred = new.predict(features_test)
+print('Time: ', round(time() - t1, 3), "s")
+# print(pred)
+score = new.score(features_test, labels_test)
+print(score)
+print('Pres :', precision_score(pred, labels_test, average='weighted', zero_division=0))
+print('Recall :', recall_score(pred, labels_test, average='weighted', zero_division=0))
+df = pd.DataFrame(new.cv_results_)
+pd.set_option("display.max_columns", 100)
+# print(df)
+print(clf.best_estimator_)
 
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
