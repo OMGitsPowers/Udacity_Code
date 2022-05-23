@@ -6,31 +6,30 @@ import os
 
 import numpy as np
 import pandas as pd
+import select
 from matplotlib import pyplot as plt
+from numpy import array
 from sklearn.pipeline import Pipeline
 
 sys.path.append(os.path.abspath(("../tools/")))
 
-from sklearn.tree import DecisionTreeClassifier
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from time import time
-from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_selection import SelectKBest, chi2, f_classif
+from sklearn.feature_selection import SelectKBest,  chi2
 from sklearn.model_selection import GridSearchCV, KFold
-from sklearn.linear_model import LogisticRegression
-
 t1 = time()
 
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
 ### The first feature must be "poi".
-features_list = ['poi', 'salary', 'total_payments', 'loan_advances', 'bonus',
-                 'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
-                 'director_fees', 'Sus_Emails', 'to_messages', 'from_poi_to_this_person', 'from_messages',
+features_list = ['poi', 'salary', 'total_payments',  'loan_advances', 'bonus',
+                  'expenses', 'exercised_stock_options', 'other', 'long_term_incentive',
+                  'director_fees', 'Sus_Emails','to_messages', 'from_poi_to_this_person', 'from_messages',
+                 'from_this_person_to_poi', 'shared_receipt_with_poi', 'to_messages',
+                 'from_poi_to_this_person', 'from_messages',
                  'from_this_person_to_poi', 'shared_receipt_with_poi']  # You will need to use more features
 
 emailFeatures = ['to_messages', 'email_address', 'from_poi_to_this_person', 'from_messages',
@@ -43,8 +42,10 @@ finFeatures = ['salary', 'deferral_payments', 'total_payments', 'loan_advances',
 
 poi = ['poi']
 
-# print(len(features_list))
+#print(len(features_list))
 total = emailFeatures + finFeatures + poi
+print(len(total))
+
 
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "rb") as data_file:
@@ -117,7 +118,7 @@ for a in my_dataset:
         my_dataset[a]['from_poi_to_this_person'] = 0.0
 for a in my_dataset:
     if my_dataset[a]['from_this_person_to_poi'] == 'NaN':
-        my_dataset[a]['from_this_person_to_poi'] = 0.0
+        my_dataset[a]['from_this_person_to_poi'] =0.0
 
 for a in my_dataset:
     if my_dataset[a]['from_messages'] == 'NaN':
@@ -137,17 +138,15 @@ for value in my_dataset:
     my_dataset[value]['Sus_Emails'] = round(float(my_dataset[value]['from_this_person_to_poi']) \
                                             / float(my_dataset[value]['from_messages']), 2)
 
+
 # Verifying My above changes worked.
-# for a in my_dataset.values():
+#for a in my_dataset.values():
 #    print(a)
 
-features_list = ['poi', 'salary', 'total_payments', 'bonus', 'exercised_stock_options', 'director_fees']
+#features_list = total
 ### Extract features and labels from dataset for local testing
-data = featureFormat(my_dataset, features_list, sort_keys=True)
+data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
-
-# new_feat = SelectKBest(chi2, k='all').fit_transform(features, labels)
-# print(new_feat)
 
 
 ### Task 4: Try a varity of classifiers
@@ -156,48 +155,55 @@ labels, features = targetFeatureSplit(data)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
+new_feat = SelectKBest(chi2, k=5).fit_transform(features, labels)
+
 
 features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.1, random_state=42)
+    train_test_split(new_feat, labels, test_size=0.1, random_state=42)
 
-kf = KFold()
-for train_indices, test_indices in kf.split(features):
-    # make training and testing sets
-    features_train = [features[a] for a in train_indices]
-    features_test = [features[b] for b in test_indices]
-    labels_train = [labels[c] for c in train_indices]
-    labels_test = [labels[d] for d in test_indices]
+
+kf=KFold()
+for train_indices, test_indices in kf.split(new_feat):
+    #make training and testing sets
+    features_train= [features[a] for a in train_indices]
+    features_test= [features[b] for b in test_indices]
+    labels_train=[labels[c] for c in train_indices]
+    labels_test=[labels[d] for d in test_indices]
+
+
+
+
+
 
 # Provided to give you a starting point. Try a variety of classifiers.
-# from sklearn.naive_bayes import GaussianNB
-# clf = GaussianNB()
-# clf.fit(features_train, labels_train)
-# pred = clf.predict(features_test)
-# score = clf.score(features_test, labels_test)
-# print('Time: ', round(time() - t1, 3), "s")
-# print(pred)
-# print(score)
-# print('Pres :', precision_score(pred, labels_test, average='weighted'))
-# print('Recall :', recall_score(pred, labels_test, average='weighted'))
+#from sklearn.naive_bayes import GaussianNB
+#clf = GaussianNB()
+#clf.fit(features_train, labels_train)
+#pred = clf.predict(features_test)
+#score = clf.score(features_test, labels_test)
+#print('Time: ', round(time() - t1, 3), "s")
+#print(pred)
+#print(score)
+#print('Pres :', precision_score(pred, labels_test, average='weighted'))
+#print('Recall :', recall_score(pred, labels_test, average='weighted'))
 
-# from sklearn.tree import DecisionTreeClassifier
-# clf = DecisionTreeClassifier()
-# clf.fit(features_train, labels_train)
-# pred = clf.predict(features_test)
-# print('Time: ', round(time() - t1, 3), "s")
-# print(pred)
-# score = clf.score(features_test, labels_test)
-# print('Score:' ,score)
-# print('Prec :', precision_score(pred, labels_test, average='weighted', zero_division=0))
-# print('Recall :', recall_score(pred, labels_test, average='weighted', zero_division=0))
+#from sklearn.tree import DecisionTreeClassifier
+#clf = DecisionTreeClassifier()
+#clf.fit(features_train, labels_train)
+#pred = clf.predict(features_test)
+#print('Time: ', round(time() - t1, 3), "s")
+#print(pred)
+#score = clf.score(features_test, labels_test)
+#print('Score:' ,score)
+#print('Prec :', precision_score(pred, labels_test, average='weighted', zero_division=0))
+#print('Recall :', recall_score(pred, labels_test, average='weighted', zero_division=0))
 
-# val = clf.feature_importances_
-# ind = np.argsort(val)[::-1]
-# print(ind)
-# for i in range(len(new_feat)):
+#val = clf.feature_importances_
+#ind = np.argsort(val)[::-1]
+#print(ind)
+#for i in range(len(new_feat)):
 #    print("{} feature {} ({})".format(i+1,features_list[i+1],val[ind[i]]))
 
-from sklearn.tree import DecisionTreeClassifier
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall
 ### using our testing script. Check the tester.py script in the final project
@@ -205,32 +211,35 @@ from sklearn.tree import DecisionTreeClassifier
 ### function. Because of the small size of the dataset, the script uses
 ### stratified shuffle split cross validation. For more info:
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
-dt = DecisionTreeClassifier()
 
-parms = {'criterion': ('gini', 'entropy'),
-         'min_samples_split': [2, 3, 4, 5, 6, 7, 8, 9, 10]
+parms = {'criterion':('gini', 'entropy'),
+         'min_samples_split': [2,3,4,5,6,7,8,9,10]
          }
-
-kbest = SelectKBest(f_classif)
-pipeline = Pipeline([('kbest', kbest), ('dt', dt)])
-gridSearch = GridSearchCV(pipeline, {'kbest__k': [1, 2, 3, 4, 5]})
-
-new = gridSearch.fit(features, labels)
-
+from sklearn.tree import DecisionTreeClassifier
 dt = DecisionTreeClassifier()
-clf = gridSearch.fit(features, labels)
-clf.fit(features_train, labels_train)
-pred = new.predict(features_test)
+grid = GridSearchCV(dt, parms, cv = 5)
+grid.fit(features_train, labels_train)
+clf = grid.best_estimator_
+pred = clf.predict(features_test)
 print('Time: ', round(time() - t1, 3), "s")
-# print(pred)
-score = new.score(features_test, labels_test)
+#print(pred)
+score = clf.score(features_test, labels_test)
 print(score)
 print('Pres :', precision_score(pred, labels_test, average='weighted', zero_division=0))
 print('Recall :', recall_score(pred, labels_test, average='weighted', zero_division=0))
-df = pd.DataFrame(new.cv_results_)
-pd.set_option("display.max_columns", 100)
-# print(df)
-print(clf.best_estimator_)
+#df = pd.DataFrame(clf.cv_results_)
+#pd.set_option("display.max_columns", 100)
+#print(df) Removed as a suggestion from the review team.
+
+
+for i in range(0,20):
+    val = SelectKBest(chi2, k=i).fit_transform(features, labels)
+    features_train, features_test, labels_train, labels_test = \
+        train_test_split(new_feat, labels, test_size=0.1, random_state=42)
+    grid = GridSearchCV(dt, parms, cv=5)
+    model = grid.fit(features_train, labels_train)
+    print(f'model with {i} -- Test: {model.score(features_test, labels_test)}')
+
 
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
