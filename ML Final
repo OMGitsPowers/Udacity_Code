@@ -18,6 +18,7 @@ from tester import dump_classifier_and_data
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from time import time
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_selection import SelectKBest,  chi2
 from sklearn.model_selection import GridSearchCV, KFold
 t1 = time()
@@ -149,26 +150,35 @@ data = featureFormat(my_dataset, features_list, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 
 
+
+
+
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
-new_feat = SelectKBest(chi2, k=5).fit_transform(features, labels)
-
+dt = DecisionTreeClassifier()
+parms = {'criterion':('gini', 'entropy'),
+         'min_samples_split': [2,3,4,5,6,7,8,9,10]
+         }
 
 features_train, features_test, labels_train, labels_test = \
-    train_test_split(new_feat, labels, test_size=0.1, random_state=42)
+    train_test_split(features, labels, test_size=0.1, random_state=42)
+
 
 
 kf=KFold()
-for train_indices, test_indices in kf.split(new_feat):
+for train_indices, test_indices in kf.split(features):
     #make training and testing sets
     features_train= [features[a] for a in train_indices]
     features_test= [features[b] for b in test_indices]
     labels_train=[labels[c] for c in train_indices]
     labels_test=[labels[d] for d in test_indices]
+
+
+new_feat = SelectKBest(chi2, k=7).fit_transform(features, labels)
 
 
 
@@ -215,9 +225,8 @@ for train_indices, test_indices in kf.split(new_feat):
 parms = {'criterion':('gini', 'entropy'),
          'min_samples_split': [2,3,4,5,6,7,8,9,10]
          }
-from sklearn.tree import DecisionTreeClassifier
-dt = DecisionTreeClassifier()
-grid = GridSearchCV(dt, parms, cv = 5)
+
+grid = GridSearchCV(dt, parms)
 grid.fit(features_train, labels_train)
 clf = grid.best_estimator_
 pred = clf.predict(features_test)
@@ -232,13 +241,6 @@ print('Recall :', recall_score(pred, labels_test, average='weighted', zero_divis
 #print(df) Removed as a suggestion from the review team.
 
 
-for i in range(0,20):
-    val = SelectKBest(chi2, k=i).fit_transform(features, labels)
-    features_train, features_test, labels_train, labels_test = \
-        train_test_split(new_feat, labels, test_size=0.1, random_state=42)
-    grid = GridSearchCV(dt, parms, cv=5)
-    model = grid.fit(features_train, labels_train)
-    print(f'model with {i} -- Test: {model.score(features_test, labels_test)}')
 
 
 
@@ -247,4 +249,4 @@ for i in range(0,20):
 ### that the version of poi_id.py that you submit can be run on its own and
 ### generates the necessary .pkl files for validating your results.
 
-#dump_classifier_and_data(clf, my_dataset, features_list)
+dump_classifier_and_data(clf, my_dataset, features_list)
